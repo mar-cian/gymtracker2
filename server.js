@@ -17,16 +17,14 @@ const dbExists = fs.existsSync(dbFile);
 const db = new sqlite3.Database(dbFile);
 
 db.serialize(() => {
-    if (!dbExists) {
-        db.run(`CREATE TABLE workouts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user TEXT,
-            date TEXT,
-            type TEXT,
-            duration INTEGER,
-            intensity TEXT
-        )`);
-    }
+    db.run(`CREATE TABLE IF NOT EXISTS workouts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user TEXT,
+        date TEXT,
+        type TEXT,
+        duration INTEGER,
+        intensity TEXT
+    )`);
 });
 
 // Routes
@@ -67,15 +65,16 @@ app.post('/api/workouts', (req, res) => {
     // "Intensity: Brightness based on duration (20min = dark, 90min = bright)" logic is handled in frontend visualization mostly,
     // but we can store it or calculate it on the fly. Let's just store the duration.
 
-    const stmt = db.prepare("INSERT INTO workouts (user, date, type, duration) VALUES (?, ?, ?, ?)");
-    stmt.run(user, date, type, duration, function(err) {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
+    db.run("INSERT INTO workouts (user, date, type, duration, intensity) VALUES (?, ?, ?, ?, ?)", 
+        [user, date, type, duration, intensity], 
+        function(err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            res.json({ id: this.lastID, user, date, type, duration, intensity });
         }
-        res.json({ id: this.lastID, user, date, type, duration });
-    });
-    stmt.finalize();
+    );
 });
 
 // Start Server
