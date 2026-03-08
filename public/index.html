@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Tracker 2026</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --bg-color: #0d1117;
@@ -188,6 +189,18 @@
             :root {
                 --cell-size: 12px;
             }
+            .chart-container {
+                height: 150px;
+            }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+            margin-top: 15px;
+            border-top: 1px dashed var(--border-color);
+            padding-top: 15px;
         }
 
         /* Hidden input for cheat code on mobile */
@@ -238,6 +251,7 @@
         const year = new Date().getFullYear();
         let workouts = [];
         let currentUser = null;
+        const charts = {}; // Store chart instances
 
         // Initialize UI
         const app = document.getElementById('app');
@@ -288,18 +302,32 @@
             const heatmap = document.createElement('div');
             heatmap.className = 'heatmap';
 
+            // Month labels could be added here, but simple titles work well for now
             days2026.forEach(day => {
                 const dateStr = formatDate(day);
                 const cell = document.createElement('div');
                 cell.className = 'day-cell physics-body';
                 cell.dataset.date = dateStr;
                 cell.dataset.user = user;
+                
+                // Add default title so the date is visible *before* entry
+                cell.title = `Datum: ${dateStr}`; 
+                
                 cell.onclick = () => openModal(user, dateStr);
                 heatmap.appendChild(cell);
             });
 
             container.appendChild(heatmap);
             section.appendChild(container);
+            
+            // Add Chart Canvas
+            const chartContainer = document.createElement('div');
+            chartContainer.className = 'chart-container physics-body';
+            const canvas = document.createElement('canvas');
+            canvas.id = `chart-${user}`;
+            chartContainer.appendChild(canvas);
+            section.appendChild(chartContainer);
+
             app.appendChild(section);
         });
 
@@ -333,7 +361,65 @@
                     // Opacity based on duration (20 min -> 0.4, 90+ min -> 1.0)
                     let opacity = Math.min(Math.max(w.duration / 90, 0.3), 1);
                     cell.style.opacity = opacity;
-                    cell.title = `${w.type}: ${w.duration} min`;
+                    cell.title = `${w.date} | ${w.type === 'cardio' ? 'Kardio' : 'Kraft'}: ${w.duration} min`;
+                }
+            });
+            renderCharts();
+        }
+
+        function renderCharts() {
+            // Group workouts by user and month
+            const userMonths = {};
+            users.forEach(u => userMonths[u] = Array(12).fill(0)); // 12 months
+
+            workouts.forEach(w => {
+                const monthIndex = new Date(w.date).getMonth();
+                if (userMonths[w.user]) {
+                    userMonths[w.user][monthIndex] += w.duration;
+                }
+            });
+
+            const monthLabels = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+
+            users.forEach(user => {
+                const ctx = document.getElementById(`chart-${user}`).getContext('2d');
+                
+                // If chart already exists, just update data
+                if (charts[user]) {
+                    charts[user].data.datasets[0].data = userMonths[user];
+                    charts[user].update();
+                } else {
+                    // Create new chart
+                    Chart.defaults.color = '#c9d1d9';
+                    charts[user] = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: monthLabels,
+                            datasets: [{
+                                label: 'Training (Minuten)',
+                                data: userMonths[user],
+                                backgroundColor: '#238636', // Strength green
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: '#30363d' },
+                                    ticks: { stepSize: 60 }
+                                },
+                                x: {
+                                    grid: { display: false }
+                                }
+                            }
+                        }
+                    });
                 }
             });
         }
