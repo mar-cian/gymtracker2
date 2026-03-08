@@ -492,7 +492,10 @@
             const type = document.getElementById('entry-type').value;
             const duration = parseInt(document.getElementById('entry-duration').value);
 
-            if (!duration) return;
+            if (!duration || isNaN(duration) || duration <= 0) {
+                alert('Bitte gib eine gültige Dauer an.');
+                return;
+            }
 
             try {
                 const res = await fetch('/api/workouts', {

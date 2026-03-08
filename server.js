@@ -55,6 +55,11 @@ app.get('/api/me', (req, res) => {
 app.post('/api/workouts', (req, res) => {
     const { user, date, type, duration } = req.body;
     
+    if (!duration || isNaN(duration) || duration <= 0) {
+        res.status(400).json({ error: 'Valid duration is required' });
+        return;
+    }
+
     // Simple intensity calculation logic based on duration
     let intensity = 'low';
     if (duration > 60) intensity = 'high';
