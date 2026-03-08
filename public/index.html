@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gym Tracker 2026</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --border-color: #30363d;
+            --card-bg: #161b22;
+            --color-cardio: #1f6feb;
+            /* Blue */
+            --color-strength: #238636;
+            /* Green */
+            --cell-empty: #161b22;
+            --cell-size: 14px;
+            --cell-gap: 3px;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+            /* Prevent body scroll from gravity elements initially */
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.5rem;
+        }
+
+        .user-section {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .user-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-add {
+            background-color: var(--color-strength);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 15px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn-add:hover {
+            opacity: 0.9;
+        }
+
+        /* Scrollable container for mobile */
+        .heatmap-container {
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 10px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .heatmap {
+            display: inline-grid;
+            grid-template-rows: repeat(7, var(--cell-size));
+            grid-auto-flow: column;
+            gap: var(--cell-gap);
+        }
+
+        .day-cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background-color: var(--cell-empty);
+            border-radius: 2px;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .day-cell:hover {
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Modal */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            width: 300px;
+            max-width: 90%;
+        }
+
+        .modal-content h3 {
+            margin-top: 0;
+        }
+
+        label {
+            display: block;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+
+        select,
+        input {
+            width: 100%;
+            padding: 10px;
+            background: #0d1117;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            font-size: 16px;
+            /* Prevent zoom on iOS */
+            box-sizing: border-box;
+        }
+
+        .btn-group {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+        }
+
+        .btn-save {
+            background: var(--color-strength);
+            color: #fff;
+        }
+
+        .btn-cancel {
+            background: var(--border-color);
+            color: var(--text-color);
+        }
+
+        /* Mobile specific adjustments */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .user-section {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 1.25rem;
+            }
+
+            /* Make heatmap cells slightly larger on mobile for touch */
+            :root {
+                --cell-size: 12px;
+            }
+        }
+
+        /* Hidden input for cheat code on mobile */
+        #cheat-input {
+            opacity: 0;
+            position: absolute;
+            top: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1 id="main-title">Gym Tracker 2026 🏋️</h1>
+    <input type="text" id="cheat-input" autocomplete="off">
+
+    <div id="app"></div>
+
+    <!-- Modal -->
+    <div id="modal">
+        <div class="modal-content">
+            <h3 id="modal-title">Eintrag hinzufügen</h3>
+            <form id="workout-form">
+                <input type="hidden" id="entry-user">
+
+                <label>Datum</label>
+                <input type="date" id="entry-date" required>
+
+                <label>Typ</label>
+                <select id="entry-type">
+                    <option value="strength">Krafttraining (Grün)</option>
+                    <option value="cardio">Kardio (Blau)</option>
+                </select>
+
+                <label>Dauer (Minuten)</label>
+                <input type="number" id="entry-duration" placeholder="z.B. 45" min="1" required>
+
+                <div class="btn-group">
+                    <button type="button" class="btn-cancel" onclick="closeModal()">Abbrechen</button>
+                    <button type="submit" class="btn-save">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const users = ['Giani', 'Angie', 'Sämi'];
+        const year = new Date().getFullYear();
+        let workouts = [];
+        let currentUser = null;
+
+        // Initialize UI
+        const app = document.getElementById('app');
+
+        // Helper to format date local YYYY-MM-DD
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        // Initialize Calendar Data
+        function getDaysInYear(year) {
+            const date = new Date(year, 0, 1);
+            const days = [];
+            while (date.getFullYear() === year) {
+                days.push(new Date(date));
+                date.setDate(date.getDate() + 1);
+            }
+            return days;
+        }
+
+        const days2026 = getDaysInYear(year);
+
+        // Build DOM
+        users.forEach(user => {
+            const section = document.createElement('div');
+            section.className = 'user-section physics-body'; // Class for Matter.js later
+
+            // Title with Add Button
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'user-title physics-body';
+            titleDiv.innerHTML = `<span>${user}</span>`;
+
+            const aadBtn = document.createElement('button');
+            aadBtn.className = 'btn-add';
+            aadBtn.dataset.btnUser = user;
+            aadBtn.innerText = '+ Eintrag';
+            aadBtn.onclick = () => openModal(user);
+            titleDiv.appendChild(aadBtn);
+
+            section.appendChild(titleDiv);
+
+            const container = document.createElement('div');
+            container.className = 'heatmap-container';
+
+            const heatmap = document.createElement('div');
+            heatmap.className = 'heatmap';
+
+            days2026.forEach(day => {
+                const dateStr = formatDate(day);
+                const cell = document.createElement('div');
+                cell.className = 'day-cell physics-body';
+                cell.dataset.date = dateStr;
+                cell.dataset.user = user;
+                cell.onclick = () => openModal(user, dateStr);
+                heatmap.appendChild(cell);
+            });
+
+            container.appendChild(heatmap);
+            section.appendChild(container);
+            app.appendChild(section);
+        });
+
+        // Fetch Data
+        async function loadWorkouts() {
+            try {
+                const res = await fetch('/api/workouts');
+                const data = await res.json();
+                workouts = data.workouts || [];
+                renderHeatmaps();
+            } catch (e) {
+                console.error('Failed to load workouts', e);
+            }
+        }
+
+        function renderHeatmaps() {
+            // Clear all styles first
+            document.querySelectorAll('.day-cell').forEach(cell => {
+                cell.style.backgroundColor = 'var(--cell-empty)';
+                cell.style.opacity = '1';
+            });
+
+            workouts.forEach(w => {
+                // Find cell
+                const cell = document.querySelector(`.day-cell[data-user="${w.user}"][data-date="${w.date}"]`);
+                if (cell) {
+                    // Color
+                    let colorVar = w.type === 'cardio' ? 'var(--color-cardio)' : 'var(--color-strength)';
+                    cell.style.backgroundColor = colorVar;
+
+                    // Opacity based on duration (20 min -> 0.4, 90+ min -> 1.0)
+                    let opacity = Math.min(Math.max(w.duration / 90, 0.3), 1);
+                    cell.style.opacity = opacity;
+                    cell.title = `${w.type}: ${w.duration} min`;
+                }
+            });
+        }
+
+        // Modal Logic
+        function openModal(user, dateStr = null) {
+            document.getElementById('modal').style.display = 'flex';
+            document.getElementById('modal-title').innerText = `${user} - Eintrag`;
+            document.getElementById('entry-user').value = user;
+
+            // Set date: provided date OR today
+            const targetDate = dateStr || new Date().toISOString().split('T')[0];
+            document.getElementById('entry-date').value = targetDate;
+
+            document.getElementById('entry-duration').value = '';
+            // Focus duration if date is already set via click, otherwise let user check date
+            if (dateStr) {
+                document.getElementById('entry-duration').focus();
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        document.getElementById('workout-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const user = document.getElementById('entry-user').value;
+            const date = document.getElementById('entry-date').value;
+            const type = document.getElementById('entry-type').value;
+            const duration = parseInt(document.getElementById('entry-duration').value);
+
+            if (!duration) return;
+
+            try {
+                const res = await fetch('/api/workouts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user, date, type, duration })
+                });
+
+                if (res.ok) {
+                    const newWorkout = await res.json();
+                    workouts.push(newWorkout); // Optimistic update or reload? Let's just push and re-render.
+                    // Actually, let's just reload to be safe or re-fetch
+                    loadWorkouts();
+                    closeModal();
+                }
+            } catch (err) {
+                alert('Fehler beim Speichern');
+            }
+        }
+
+        // CF Zero Trust: Fetch user and hide buttons if needed
+        async function fetchUser() {
+            try {
+                const res = await fetch('/api/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    currentUser = data.user;
+                    if (currentUser) {
+                        document.querySelectorAll('.btn-add').forEach(btn => {
+                            if (btn.dataset.btnUser !== currentUser) {
+                                btn.style.display = 'none';
+                            }
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not fetch CF access user', e);
+            }
+        }
+        
+        fetchUser();
+        loadWorkouts();
+
+        // --- ANTIGRAVITY EASTER EGG ---
+        let cheatCode = [];
+        const secret = "gravity";
+        let gravityEnabled = false;
+
+        window.addEventListener('keydown', (e) => {
+            if (gravityEnabled) return;
+            cheatCode.push(e.key);
+            if (cheatCode.length > secret.length) cheatCode.shift();
+            if (cheatCode.join('').toLowerCase().includes(secret)) {
+                enableGravity();
+            }
+        });
+
+        // Mobile cheat trigger via hidden input
+        document.getElementById('main-title').addEventListener('click', () => {
+            document.getElementById('cheat-input').focus();
+        });
+
+        document.getElementById('cheat-input').addEventListener('input', (e) => {
+            if (gravityEnabled) return;
+            if (e.target.value.toLowerCase().includes(secret)) {
+                enableGravity();
+                e.target.blur();
+            }
+        });
+
+        function enableGravity() {
+            gravityEnabled = true;
+            alert("ANTIGRAVITY ACTIVATED! 🌌");
+
+            // Matter.js setup
+            const Engine = Matter.Engine,
+                Render = Matter.Render,
+                Runner = Matter.Runner,
+                Bodies = Matter.Bodies,
+                Composite = Matter.Composite,
+                Mouse = Matter.Mouse,
+                MouseConstraint = Matter.MouseConstraint;
+
+            const engine = Engine.create();
+            const world = engine.world;
+
+            // Create canvas over everything
+            const render = Render.create({
+                element: document.body,
+                engine: engine,
+                options: {
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    wireframes: false,
+                    background: 'transparent' // Let CSS background show
+                }
+            });
+
+            // Hide original DOM elements but keep them for reference if needed? 
+            // Better: replace them with bodies matching their size/position
+
+            // Let's take all "physics-body" elements and turn them into matter bodies
+            const elements = document.querySelectorAll('.physics-body');
+            const bodies = [];
+
+            elements.forEach(el => {
+                const rect = el.getBoundingClientRect();
+                // Get color from element
+                const style = window.getComputedStyle(el);
+                const color = style.backgroundColor;
+
+                // Create box
+                const body = Bodies.rectangle(
+                    rect.x + rect.width / 2,
+                    rect.y + rect.height / 2,
+                    rect.width,
+                    rect.height,
+                    {
+                        render: { fillStyle: color, strokeStyle: '#fff', lineWidth: 1 },
+                        restitution: 0.9
+                    }
+                );
+                bodies.push(body);
+                // Hide original
+                el.style.visibility = 'hidden';
+                // Also hide containers borders to clean up view
+            });
+
+            // Add walls
+            const wallOptions = { isStatic: true, render: { fillStyle: '#30363d' } };
+            const ground = Bodies.rectangle(window.innerWidth / 2, window.innerHeight + 30, window.innerWidth, 60, wallOptions);
+            const leftWall = Bodies.rectangle(-30, window.innerHeight / 2, 60, window.innerHeight, wallOptions);
+            const rightWall = Bodies.rectangle(window.innerWidth + 30, window.innerHeight / 2, 60, window.innerHeight, wallOptions);
+
+            Composite.add(world, [...bodies, ground, leftWall, rightWall]);
+
+            // Mouse control
+            const mouse = Mouse.create(render.canvas);
+            const mouseConstraint = MouseConstraint.create(engine, {
+                mouse: mouse,
+                constraint: {
+                    stiffness: 0.2,
+                    render: { visible: false }
+                }
+            });
+            Composite.add(world, mouseConstraint);
+            render.mouse = mouse;
+
+            Render.run(render);
+            const runner = Runner.create();
+            Runner.run(runner, engine);
+
+            // Hide other UI
+            document.querySelector('.heatmap-container').style.overflow = 'visible'; // allow falling out if logic wasn't replacing
+        }
+    </script>
+</body>
+
+</html>
