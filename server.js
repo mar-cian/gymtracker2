@@ -77,6 +77,18 @@ app.post('/api/workouts', (req, res) => {
     );
 });
 
+// Delete a workout
+app.delete('/api/workouts/:id', (req, res) => {
+    const id = req.params.id;
+    db.run("DELETE FROM workouts WHERE id = ?", id, function(err) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({ deleted: this.changes });
+    });
+});
+
 // Start Server
 app.listen(port, () => {
     console.log(`Gym Tracker running at http://localhost:${port}`);

@@ -244,6 +244,7 @@
                 <input type="number" id="entry-duration" placeholder="z.B. 45" min="1" required>
 
                 <div class="btn-group">
+                    <button type="button" class="btn-delete" id="btn-delete" style="display:none; background: #da3633; color: white; margin-right: auto;" onclick="deleteWorkout()">Löschen</button>
                     <button type="button" class="btn-cancel" onclick="closeModal()">Abbrechen</button>
                     <button type="submit" class="btn-save">Speichern</button>
                 </div>
@@ -430,6 +431,8 @@
         }
 
         // Modal Logic
+        let currentEditWorkoutIds = [];
+
         function openModal(user, dateStr = null) {
             document.getElementById('modal').style.display = 'flex';
             document.getElementById('modal-title').innerText = `${user} - Eintrag`;
@@ -439,10 +442,42 @@
             const targetDate = dateStr || new Date().toISOString().split('T')[0];
             document.getElementById('entry-date').value = targetDate;
 
-            document.getElementById('entry-duration').value = '';
+            // Show delete button if entry exists
+            const existing = workouts.filter(w => w.user === user && w.date === targetDate);
+            const deleteBtn = document.getElementById('btn-delete');
+            
+            if (existing.length > 0) {
+                currentEditWorkoutIds = existing.map(w => w.id);
+                if (deleteBtn) deleteBtn.style.display = 'block';
+                
+                // Pre-fill data from the last added entry for that day
+                const lastEntry = existing[existing.length - 1];
+                document.getElementById('entry-type').value = lastEntry.type;
+                document.getElementById('entry-duration').value = lastEntry.duration;
+            } else {
+                currentEditWorkoutIds = [];
+                if (deleteBtn) deleteBtn.style.display = 'none';
+                document.getElementById('entry-duration').value = '';
+            }
+
             // Focus duration if date is already set via click, otherwise let user check date
-            if (dateStr) {
+            if (dateStr && existing.length === 0) {
                 document.getElementById('entry-duration').focus();
+            }
+        }
+
+        async function deleteWorkout() {
+            if (currentEditWorkoutIds.length === 0) return;
+            if (!confirm('Eintrag wirklich löschen?')) return;
+            
+            try {
+                for (const id of currentEditWorkoutIds) {
+                    await fetch(`/api/workouts/${id}`, { method: 'DELETE' });
+                }
+                await loadWorkouts();
+                closeModal();
+            } catch (err) {
+                alert('Fehler beim Löschen');
             }
         }
 
