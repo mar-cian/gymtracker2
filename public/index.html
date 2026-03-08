@@ -224,7 +224,12 @@
         <div class="modal-content">
             <h3 id="modal-title">Eintrag hinzufügen</h3>
             <form id="workout-form">
-                <input type="hidden" id="entry-user">
+                <label>Person</label>
+                <select id="entry-user">
+                    <option value="Giani">Giani</option>
+                    <option value="Angie">Angie</option>
+                    <option value="Sämi">Sämi</option>
+                </select>
 
                 <label>Datum</label>
                 <input type="date" id="entry-date" required>
@@ -481,15 +486,22 @@
                     const data = await res.json();
                     currentUser = data.user;
                     if (currentUser) {
+                        // If Cloudflare user exists, hide other users' add buttons
                         document.querySelectorAll('.btn-add').forEach(btn => {
                             if (btn.dataset.btnUser !== currentUser) {
                                 btn.style.display = 'none';
                             }
                         });
+                        
+                        // Disable the user dropdown in modal to lock it to CF user
+                        const userSelect = document.getElementById('entry-user');
+                        if (userSelect) {
+                            userSelect.disabled = true;
+                        }
                     }
                 }
             } catch (e) {
-                console.warn('Could not fetch CF access user', e);
+                console.warn('Could not fetch CF access user, falling back to manual mode.', e);
             }
         }
         
